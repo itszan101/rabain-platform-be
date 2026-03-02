@@ -5,12 +5,15 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RolePermissionController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::middleware(['throttle:5,1'])->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login'])->name('login');
+});
+
+Route::get('/email/verify',[AuthController::class, 'emailVerify'])->name('verification.verify.api');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:user.view');
     Route::post('/users', [UserController::class, 'store'])->middleware('permission:user.create');
     Route::get('/users/{id}', [UserController::class, 'show'])->middleware('permission:user.view');
