@@ -10,7 +10,10 @@ Route::middleware(['throttle:5,1'])->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login');
 });
 
-Route::get('/email/verify',[AuthController::class, 'emailVerify'])->name('verification.verify.api');
+Route::get('/email/verify', [AuthController::class, 'emailVerify'])->name('verification.verify.api');
+Route::post('/email/resend', [AuthController::class, 'resendEmailVerification'])->middleware('throttle:3,1');
+Route::post('/forgot-password',  [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:3,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
