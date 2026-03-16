@@ -21,7 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'gender',
         'email',
         'password',
-        'profile_picture',
+        'avatar',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -45,5 +45,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
+    public function socialAccounts()
+    {
+        return $this->hasMany(SocialAccount::class);
     }
 }

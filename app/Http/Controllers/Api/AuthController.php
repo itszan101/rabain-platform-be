@@ -7,10 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 use App\Http\Controllers\Controller;
+use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -163,7 +167,7 @@ class AuthController extends Controller
         $status = Password::sendResetLink(
             $request->only('email')
         );
-        
+
         if ($status === Password::RESET_LINK_SENT) {
             return response()->json([
                 'message' => 'Reset link sent successfully',
@@ -206,9 +210,142 @@ class AuthController extends Controller
         ], 400);
     }
 
+    public function googleLogin(Request $request)
+    {
+
+        $request->validate([
+            'id_token' => 'required'
+        ]);
+
+        /*
+    |---------------------------------------------------
+    | Verifikasi token Google
+    |---------------------------------------------------
+    */
+
+        $response = Http::get(
+            'https://oauth2.googleapis.com/tokeninfo',
+            [
+                'id_token' => $request->id_token
+            ]
+        );
+
+        if (!$response->ok()) {
+
+            return response()->json([
+                'message' => 'Invalid Google token'
+            ], 401);
+        }
+
+        $google = $response->json();
+
+        $provider = 'google';
+        $providerId = $google['sub'];
+
+        /*
+    |---------------------------------------------------
+    | Ambil nama
+    |---------------------------------------------------
+    */
+
+        $firstName = $google['given_name'] ?? null;
+        $lastName  = $google['family_name'] ?? null;
+
+        /*
+    |---------------------------------------------------
+    | Fallback jika Google tidak memberi given/family
+    |---------------------------------------------------
+    */
+
+        if (!$firstName) {
+
+            $name = explode(' ', $google['name'] ?? 'Google User');
+
+            $firstName = $name[0] ?? 'Google';
+            $lastName  = $name[1] ?? null;
+        }
+
+        /*
+    |---------------------------------------------------
+    | Cari social account
+    |---------------------------------------------------
+    */
+
+        $social = SocialAccount::where([
+            'provider' => $provider,
+            'provider_id' => $providerId
+        ])->first();
+
+        if ($social) {
+
+            $user = $social->user;
+        } else {
+
+            /*
+        |---------------------------------------------------
+        | Cek apakah email sudah ada
+        |---------------------------------------------------
+        */
+
+            $user = User::where('email', $google['email'])->first();
+
+            if (!$user) {
+
+                $user = User::create([
+                    'first_name' => $firstName,
+                    'last_name'  => $lastName,
+                    'email' => $google['email'],
+                    'avatar' => $google['picture'] ?? null,
+                    'password' => bcrypt(Str::random(32)),
+                    'email_verified_at' => now()
+                ]);
+            }
+
+            /*
+        |---------------------------------------------------
+        | Simpan relasi social account
+        |---------------------------------------------------
+        */
+
+            SocialAccount::create([
+                'user_id' => $user->id,
+                'provider' => $provider,
+                'provider_id' => $providerId
+            ]);
+        }
+
+        /*
+    |---------------------------------------------------
+    | Update avatar jika berubah
+    |---------------------------------------------------
+    */
+
+        if (!empty($google['picture'])) {
+
+            $user->update([
+                'avatar' => $google['picture']
+            ]);
+        }
+
+        /*
+    |---------------------------------------------------
+    | Generate Sanctum Token
+    |---------------------------------------------------
+    */
+
+        $user->tokens()->delete();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'user' => $user
+        ]);
+    }
+
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->tokens()->delete();
         return response()->json(['message' => 'Logged out successfully']);
     }
 }
