@@ -4,13 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RolePermissionController;
+use App\Http\Controllers\LabController;
+use App\Http\Controllers\LabelController;
+use App\Http\Controllers\QueueController;
+use App\Http\Controllers\RegisterController;
 
 Route::middleware(['throttle:5,1'])->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
 });
 
-Route::post('/auth/google', [AuthController::class,'googleLogin']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 Route::get('/email/verify', [AuthController::class, 'emailVerify'])->name('verification.verify.api');
 Route::post('/email/resend', [AuthController::class, 'resendEmailVerification'])->middleware('throttle:3,1');
@@ -42,3 +46,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // USER ROLE MANAGEMENT
     Route::post('/users/{id}/roles/update', [RolePermissionController::class, 'updateUserRoles'])->middleware('permission:role.assignUser');
 });
+
+
+Route::post('/pendaftaran', [RegisterController::class, 'register']);
+
+Route::get('/queues', [QueueController::class, 'index']);
+Route::post('/queues/{id}/to-lab', [QueueController::class, 'moveToLab']);
+
+Route::get('/lab/patients', [LabController::class, 'list']);
+Route::post('/lab/process', [LabController::class, 'process']);
+
+Route::get('/label/sample/{id}', [LabelController::class, 'sample']);
+Route::get('/label/blood/{id}', [LabelController::class, 'blood']);
