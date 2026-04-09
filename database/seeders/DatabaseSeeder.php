@@ -15,11 +15,11 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
         ]);
 
-        foreach (['A', 'B', 'AB', 'O'] as $type) {
+        foreach (['A', 'B', 'AB', 'O', 'Unknown'] as $type) {
             BloodType::create(['name' => $type]);
         }
 
-        foreach (['+', '-'] as $r) {
+        foreach (['+', '-', 'Unknown'] as $r) {
             Rhesus::create(['type' => $r]);
         }
     }

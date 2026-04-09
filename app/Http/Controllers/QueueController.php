@@ -9,7 +9,6 @@ class QueueController extends Controller
     public function index()
     {
         return Queue::with('donor')
-            ->where('status', 'waiting')
             ->get();
     }
 
