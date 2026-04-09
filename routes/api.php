@@ -49,6 +49,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 
 Route::post('/pendaftaran', [RegisterController::class, 'register']);
+Route::post('/donor/lookup-nik', [RegisterController::class, 'lookupByNik']);
+Route::post('/ocr/ktp', [RegisterController::class, 'ocrKtp'])->name('ocr.ktp');
 
 Route::get('/queues', [QueueController::class, 'index']);
 Route::post('/queues/{id}/to-lab', [QueueController::class, 'moveToLab']);

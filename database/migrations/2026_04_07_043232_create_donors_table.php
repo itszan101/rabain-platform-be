@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('donors', function (Blueprint $table) {
             $table->id();
-            $table->string('nik')->unique();
+            $table->string('nik');
             $table->string('name');
             $table->date('birth_date');
             $table->text('address');
