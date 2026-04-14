@@ -17,11 +17,23 @@ class QueueController extends Controller
         $queue = Queue::findOrFail($id);
 
         $queue->update([
-            'status' => 'lab'
+            'status' => 'Lab'
         ]);
 
         return response()->json([
             'message' => 'Queue moved to lab'
+        ]);
+    }
+    public function moveToLabProcess($id)
+    {
+        $queue = Queue::findOrFail($id);
+
+        $queue->update([
+            'status' => 'Diproses'
+        ]);
+
+        return response()->json([
+            'message' => 'Queue moved to Lab Process'
         ]);
     }
 }

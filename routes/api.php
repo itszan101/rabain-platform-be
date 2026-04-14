@@ -54,6 +54,7 @@ Route::post('/ocr/ktp', [RegisterController::class, 'ocrKtp'])->name('ocr.ktp');
 
 Route::get('/queues', [QueueController::class, 'index']);
 Route::post('/queues/{id}/to-lab', [QueueController::class, 'moveToLab']);
+Route::post('/queues/{id}/to-lab-process', [QueueController::class, 'moveToLabProcess']);
 
 Route::get('/lab/patients', [LabController::class, 'list']);
 Route::post('/lab/process', [LabController::class, 'process']);

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('donor_id')->constrained()->cascadeOnDelete();
             $table->string('queue_number');
             $table->string('barcode');
-            $table->enum('status', ['waiting', 'lab', 'done', 'rejected'])->default('waiting');
+            $table->enum('status', ['Waiting', 'Lab', 'Diproses', 'Done', 'Rejected'])->default('Waiting');
             $table->timestamps();
         });
     }
