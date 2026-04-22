@@ -43,7 +43,7 @@ class LabController extends Controller
             return response()->json(['message' => 'Donor sudah blacklist'], 422);
         }
 
-        if (!$donor->queue || $donor->queue->status !== 'lab') {
+        if (!$donor->queue || $donor->queue->status !== 'Lab') {
             return response()->json([
                 'message' => 'Donor belum masuk tahap lab'
             ], 422);
