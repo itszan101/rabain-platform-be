@@ -7,13 +7,17 @@ use App\Models\Donor;
 use App\Models\LabResult;
 use Illuminate\Support\Facades\DB;
 use App\Models\Queue;
+use App\Models\Inventory;
+use App\Models\InventoryCategory;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class LabController extends Controller
 {
     public function list()
     {
         return Queue::with('donor')
-            ->where('status', 'lab')
+            ->whereIn('status', ['lab', 'diproses', 'done', 'rejected'])
             ->get();
     }
 
@@ -107,6 +111,30 @@ class LabController extends Controller
                 $donor->queue()->update([
                     'status' => 'done'
                 ]);
+
+                // =========================
+                // AUTO INSERT INVENTORY
+                // =========================
+
+                $category = InventoryCategory::where('name', 'Donor')->first();
+
+                if (!$category) {
+                    throw new \Exception('Category Donor belum dibuat');
+                }
+
+                Inventory::create([
+                    'bag_id' => 'BAG-' . strtoupper(Str::random(10)),
+                    'donor_id' => $donor->id,
+
+                    'blood_type' => $this->mapBlood($donor->blood_type_id),
+                    'rhesus' => $this->mapRhesus($donor->rhesus_id),
+
+                    'donation_date' => now(),
+                    'expired_date' => now()->addDays(35), // standar darah
+
+                    'category_id' => $category->id,
+                    'status' => 'available'
+                ]);
             }
 
             return response()->json([
@@ -115,5 +143,25 @@ class LabController extends Controller
                 'is_imltd' => $isIMLTD
             ]);
         });
+    }
+
+    private function mapBlood($id)
+    {
+        return match ($id) {
+            1 => 'A',
+            2 => 'B',
+            3 => 'AB',
+            4 => 'O',
+            default => '-'
+        };
+    }
+
+    private function mapRhesus($id)
+    {
+        return match ($id) {
+            1 => '+',
+            2 => '-',
+            default => '-'
+        };
     }
 }
