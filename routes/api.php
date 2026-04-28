@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\RolePermissionController;
+use App\Http\Controllers\DonorController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\QueueController;
@@ -61,3 +63,11 @@ Route::post('/lab/process', [LabController::class, 'process']);
 
 Route::get('/label/sample/{id}', [LabelController::class, 'sample']);
 Route::get('/label/blood/{id}', [LabelController::class, 'blood']);
+
+Route::prefix('inventory')->group(function () {
+    Route::get('/', [InventoryController::class, 'index']);   // view
+    Route::post('/', [InventoryController::class, 'store']);  // add
+});
+
+Route::get('/donors', [DonorController::class, 'index']);
+Route::get('/donors/{id}', [DonorController::class, 'show']);

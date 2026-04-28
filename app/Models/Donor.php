@@ -42,4 +42,5 @@ class Donor extends Model
     {
         return $this->belongsTo(Rhesus::class);
     }
+
 }

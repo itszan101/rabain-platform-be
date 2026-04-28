@@ -11,6 +11,8 @@ use App\Models\Inventory;
 use App\Models\InventoryCategory;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use App\Models\BloodType;
+use App\Models\Rhesus;
 
 class LabController extends Controller
 {
@@ -32,6 +34,9 @@ class LabController extends Controller
             'weight' => 'required|numeric',
             'temperature' => 'required|numeric',
 
+            'blood_type' => 'required|in:A,B,O,AB',
+            'rhesus' => 'required|in:positive,negative',
+
             'hiv' => 'required|in:non-reactive,reactive',
             'hcv' => 'required|in:non-reactive,reactive',
             'hbsag' => 'required|in:non-reactive,reactive',
@@ -42,7 +47,6 @@ class LabController extends Controller
 
         $donor = Donor::with('queue')->findOrFail($request->donor_id);
 
-        // ❗ HARD GUARD
         if ($donor->is_blacklisted) {
             return response()->json(['message' => 'Donor sudah blacklist'], 422);
         }
@@ -50,6 +54,12 @@ class LabController extends Controller
         if (!$donor->queue || $donor->queue->status !== 'Lab') {
             return response()->json([
                 'message' => 'Donor belum masuk tahap lab'
+            ], 422);
+        }
+
+        if (!$donor->queue->barcode) {
+            return response()->json([
+                'message' => 'Barcode queue belum tersedia'
             ], 422);
         }
 
@@ -61,14 +71,31 @@ class LabController extends Controller
 
         return DB::transaction(function () use ($request, $donor) {
 
-            // 🔴 DETEKSI IMLTD
+            $rhesusMap = [
+                'positive' => '+',
+                'negative' => '-',
+            ];
+
+            if (!isset($rhesusMap[$request->rhesus])) {
+                throw new \Exception('Invalid rhesus value');
+            }
+
+            $rhesusValue = $rhesusMap[$request->rhesus];
+
+            $bloodType = BloodType::where('name', $request->blood_type)->firstOrFail();
+            $rhesus    = Rhesus::where('type', $rhesusValue)->firstOrFail();
+
+            $donor->update([
+                'blood_type_id' => $bloodType->id,
+                'rhesus_id'     => $rhesus->id,
+            ]);
+
             $isIMLTD =
                 $request->hiv === 'reactive' ||
                 $request->hcv === 'reactive' ||
                 $request->hbsag === 'reactive' ||
                 $request->sifilis === 'reactive';
 
-            // 🔴 VALIDASI VITAL
             $isVitalNormal =
                 $request->hemoglobin >= 12.5 &&
                 $request->systolic >= 90 && $request->systolic <= 140 &&
@@ -77,6 +104,10 @@ class LabController extends Controller
                 $request->temperature >= 36 && $request->temperature <= 37.5;
 
             $isEligible = !$isIMLTD && $isVitalNormal;
+
+            $donor->update([
+                'is_eligible' => $isEligible,
+            ]);
 
             LabResult::create([
                 'donor_id' => $donor->id,
@@ -95,8 +126,11 @@ class LabController extends Controller
             ]);
 
             if ($isIMLTD) {
-                // 🔴 PERMANENT BLACKLIST
-                $donor->update(['is_blacklisted' => true]);
+
+                $donor->update([
+                    'is_blacklisted' => true,
+                    'is_eligible' => false,
+                ]);
 
                 $donor->queue()->update([
                     'status' => 'rejected'
@@ -112,26 +146,44 @@ class LabController extends Controller
                     'status' => 'done'
                 ]);
 
-                // =========================
-                // AUTO INSERT INVENTORY
-                // =========================
+                /**
+                 * =========================
+                 * ✅ FIX BAG ID (ANTI DUPLICATE)
+                 * =========================
+                 */
+                $category = InventoryCategory::where('name', 'Donor')->firstOrFail();
 
-                $category = InventoryCategory::where('name', 'Donor')->first();
+                $prefix = 'DNR';
+                $datePart = now()->format('ymd');
 
-                if (!$category) {
-                    throw new \Exception('Category Donor belum dibuat');
+                $lastBag = Inventory::where('bag_id', 'like', $prefix . '-' . $datePart . '-%')
+                    ->lockForUpdate()
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($lastBag) {
+                    $lastRunning = (int) substr($lastBag->bag_id, -4);
+                    $nextRunning = $lastRunning + 1;
+                } else {
+                    $nextRunning = 1;
                 }
 
+                $running = str_pad($nextRunning, 4, '0', STR_PAD_LEFT);
+
+                $bagId = "{$prefix}-{$datePart}-{$running}";
+
+                /**
+                 * =========================
+                 * INSERT INVENTORY
+                 * =========================
+                 */
                 Inventory::create([
-                    'bag_id' => 'BAG-' . strtoupper(Str::random(10)),
+                    'bag_id' => $bagId,
                     'donor_id' => $donor->id,
-
-                    'blood_type' => $this->mapBlood($donor->blood_type_id),
-                    'rhesus' => $this->mapRhesus($donor->rhesus_id),
-
+                    'blood_type' => $bloodType->name,
+                    'rhesus' => $rhesusValue,
                     'donation_date' => now(),
-                    'expired_date' => now()->addDays(35), // standar darah
-
+                    'expired_date' => now()->addDays(35),
                     'category_id' => $category->id,
                     'status' => 'available'
                 ]);
